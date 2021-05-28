@@ -9,6 +9,10 @@ API = "https://lz4.overpass-api.de/api/interpreter"
 
 
 def eprint(*args, **kwargs):
+    # Don't add a newline for messages ending with "..."
+    if args and args[0].endswith("...") and not "end" in kwargs:
+        kwargs["end"] = ""
+        kwargs["flush"] = True
     print(*args, file=sys.stderr, **kwargs)
 
 
@@ -44,7 +48,7 @@ def get_elements(data, code_key, lang=None):
 
 
 def get_3166_1(lang=None):
-    eprint("Getting all country code data...", end="", flush=True)
+    eprint("Getting all country code data...")
     data = call_api("relation['ISO3166-1'~'.*']")
     eprint(f"done ({len(data['elements'])} countries)")
 
@@ -52,7 +56,7 @@ def get_3166_1(lang=None):
 
 
 def get_3166_2(code, lang=None):
-    eprint(f"Getting region data for {code}...", end="", flush=True)
+    eprint(f"Getting region data for {code}...")
     data = call_api(f"relation['ISO3166-2'~'^{code}-']")
     eprint(f"done ({len(data['elements'])} regions)")
 
@@ -86,7 +90,7 @@ def main():
 
     data = dict(get_3166(lang=args.language))
 
-    eprint(f"Writing data for {len(data)} countries and regions...", end="", flush=True)
+    eprint(f"Writing data for {len(data)} countries and regions...")
     with args.output as f:
         json.dump(data, f, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
         f.write("\n")
