@@ -3,9 +3,19 @@
 import argparse
 import json
 import sys
+import time
+from   urllib.error import HTTPError
 import urllib.request
 
-API = "https://lz4.overpass-api.de/api/interpreter"
+API = "https://overpass-api.de/api/interpreter"
+
+# Ratelimit config (values in minutes)
+# Depending on how busy the server is, you could be ratelimited very quickly
+# See https://github.com/drolbr/Overpass-API/issues/333#issuecomment-256693066
+RATELIMIT_INIT = 1
+RATELIMIT_BACKOFF_FACTOR = 2
+RATELIMIT_MAX_TIME = 15
+RATELIMIT_MAX_RETRY = 10
 
 
 def eprint(*args, **kwargs):
@@ -17,11 +27,23 @@ def eprint(*args, **kwargs):
 
 
 def get_json(*args, **kwargs):
-    with urllib.request.urlopen(*args, **kwargs) as r:
-        return json.loads(r.read().decode("utf-8"))
+    for x in range(RATELIMIT_MAX_RETRY):
+        try:
+            with urllib.request.urlopen(*args, **kwargs) as r:
+                return json.loads(r.read().decode("utf-8"))
+        except HTTPError as e:
+            if e.code not in (429, 504) or x >= RATELIMIT_MAX_RETRY - 1:
+                raise
+            delay = min(RATELIMIT_INIT * (RATELIMIT_BACKOFF_FACTOR ** x), RATELIMIT_MAX_TIME)
+            if x == 0:
+                eprint(f"hit ratelimit, retry in {delay} min...")
+            else:
+                eprint(f"in {delay} min...")
+            time.sleep(delay * 60)
 
 
 def call_api(query):
+    time.sleep(1)
     return get_json(f"{API}?data=[out:json];{query};out+tags+center;")
 
 
